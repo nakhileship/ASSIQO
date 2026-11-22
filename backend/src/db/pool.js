@@ -6,8 +6,12 @@
 
 const { Pool } = require('pg');
 
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://assiqo_user:assiqo_pass@localhost:5432/assiqo_db';
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   idleTimeoutMillis:    30_000,
   connectionTimeoutMillis: 5_000,
 });

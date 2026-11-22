@@ -2,19 +2,19 @@
 -- ASSIQO Seed Data
 --
 -- All passwords are "password123" hashed with bcrypt (cost 10).
--- Hash: $2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i
+-- Hash: $2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m
 -- =============================================================
 
 -- ── Users ────────────────────────────────────────────────────────────────────
 INSERT INTO users (name, email, password_hash, role) VALUES
   -- Admin / Professor
-  ('Prof. Admin',   'admin@assiqo.dev',  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i', 'admin'),
+  ('Prof. Admin',   'admin@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'admin'),
   -- Students
-  ('Alice Johnson', 'alice@assiqo.dev',  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i', 'student'),
-  ('Bob Smith',     'bob@assiqo.dev',    '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i', 'student'),
-  ('Carol White',   'carol@assiqo.dev',  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i', 'student'),
-  ('Dave Brown',    'dave@assiqo.dev',   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.ucrIru2.i', 'student')
-ON CONFLICT (email) DO NOTHING;
+  ('Alice Johnson', 'alice@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
+  ('Bob Smith',     'bob@assiqo.dev',    '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
+  ('Carol White',   'carol@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
+  ('Dave Brown',    'dave@assiqo.dev',   '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student')
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- ── Sample group (created by Alice) ──────────────────────────────────────────
 INSERT INTO groups (name, created_by)
