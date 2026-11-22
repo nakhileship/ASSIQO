@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import SubmitConfirmModal from '../components/SubmitConfirmModal';
 
 export default function StudentDashboard() {
   const [assignments, setAssignments] = useState([]);
@@ -12,6 +13,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'pending' | 'submitted'
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
 
   const fetchAssignments = async () => {
     try {
@@ -59,6 +62,32 @@ export default function StudentDashboard() {
     });
   };
 
+  const handleSubmissionSuccess = (submission) => {
+    setAssignments((prev) =>
+      prev.map((item) => {
+        if (item.id === selectedAssignment.id) {
+          return {
+            ...item,
+            submission: {
+              submitted: true,
+              confirmed_by_name: submission.confirmed_by_name || 'You',
+              confirmed_at: submission.confirmed_at || new Date().toISOString(),
+            },
+          };
+        }
+        return item;
+      })
+    );
+    setToastMessage(`Submission confirmed for "${selectedAssignment.title}"!`);
+    setSelectedAssignment(null);
+  };
+
+  const handleSubmission409 = () => {
+    setSelectedAssignment(null);
+    setToastMessage('This assignment was already submitted by another member. Syncing status...');
+    fetchAssignments();
+  };
+
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
@@ -69,6 +98,24 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage('')}
+            className="text-emerald-600 hover:text-emerald-800 p-1"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -261,6 +308,19 @@ export default function StudentDashboard() {
                           Open submission link &rarr;
                         </a>
                       )}
+
+                      {!submitted && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={!hasGroup}
+                          onClick={() => setSelectedAssignment(assignment)}
+                          className="w-full"
+                          title={!hasGroup ? 'You must be in a group to submit' : undefined}
+                        >
+                          Mark as Submitted
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -269,6 +329,15 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+
+      {/* Two-Step Confirmation Modal */}
+      <SubmitConfirmModal
+        assignment={selectedAssignment}
+        isOpen={Boolean(selectedAssignment)}
+        onClose={() => setSelectedAssignment(null)}
+        onSuccess={handleSubmissionSuccess}
+        onError409={handleSubmission409}
+      />
     </div>
   );
 }
