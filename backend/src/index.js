@@ -9,6 +9,7 @@ const express = require('express');
 const cors    = require('cors');
 
 const healthRouter = require('./routes/health');
+const authRouter   = require('./routes/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +20,7 @@ app.use(express.json());
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/health', healthRouter);
+app.use('/api/auth',   authRouter);
 
 // Routes for future phases will be mounted here (auth, groups, assignments…)
 
