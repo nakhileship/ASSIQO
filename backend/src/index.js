@@ -11,6 +11,7 @@ const cors    = require('cors');
 const healthRouter = require('./routes/health');
 const authRouter   = require('./routes/auth');
 const adminRouter  = require('./routes/admin');
+const groupRouter  = require('./routes/group');
 const errorHandler = require('./middleware/errorHandler');
 
 const app  = express();
@@ -23,6 +24,7 @@ app.use(express.json());
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/health', healthRouter);
 app.use('/api/auth',   authRouter);
+app.use('/api/groups', groupRouter);
 app.use('/api/admin',  adminRouter);
 
 // Routes for future phases will be mounted here (auth, groups, assignments…)
