@@ -15,5 +15,6 @@ router.use(authMiddleware);
 router.use(requireRole('student'));
 
 router.get('/', studentAssignmentController.getStudentAssignments);
+router.post('/:id/confirm', studentAssignmentController.confirmSubmission);
 
 module.exports = router;

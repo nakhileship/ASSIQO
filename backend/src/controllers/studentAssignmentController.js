@@ -1,6 +1,6 @@
 /**
  * src/controllers/studentAssignmentController.js
- * Student assignment listing: visible to student's group, with group submission status.
+ * Student assignment listing and group submission confirmation.
  */
 
 const pool = require('../db/pool');
@@ -82,6 +82,88 @@ const getStudentAssignments = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/assignments/:id/confirm
+ * Confirms submission for the student's group.
+ * Rejects with 409 if already confirmed.
+ */
+const confirmSubmission = async (req, res, next) => {
+  try {
+    const assignmentId = parseInt(req.params.id, 10);
+    if (isNaN(assignmentId)) {
+      return res.status(400).json({ error: 'Invalid assignment ID' });
+    }
+
+    const studentId = req.user.id;
+
+    // 1. Must be in a group
+    const groupResult = await pool.query(
+      'SELECT group_id FROM group_members WHERE user_id = $1',
+      [studentId]
+    );
+
+    if (groupResult.rows.length === 0) {
+      return res.status(400).json({ error: 'You must be in a group to confirm submission' });
+    }
+
+    const groupId = groupResult.rows[0].group_id;
+
+    // 2. Check assignment exists and is visible to that group
+    const assignmentResult = await pool.query(
+      'SELECT id, title, assign_to_all FROM assignments WHERE id = $1',
+      [assignmentId]
+    );
+
+    if (assignmentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
+
+    const assignment = assignmentResult.rows[0];
+
+    if (!assignment.assign_to_all) {
+      const visibilityCheck = await pool.query(
+        'SELECT 1 FROM assignment_groups WHERE assignment_id = $1 AND group_id = $2',
+        [assignmentId, groupId]
+      );
+      if (visibilityCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'This assignment is not assigned to your group' });
+      }
+    }
+
+    // 3. Check if already confirmed
+    const existingSubmission = await pool.query(
+      'SELECT id FROM submissions WHERE assignment_id = $1 AND group_id = $2',
+      [assignmentId, groupId]
+    );
+
+    if (existingSubmission.rows.length > 0) {
+      return res.status(409).json({ error: 'Already confirmed' });
+    }
+
+    // 4. Record submission
+    const insertResult = await pool.query(
+      `INSERT INTO submissions (assignment_id, group_id, confirmed_by)
+       VALUES ($1, $2, $3)
+       RETURNING id, assignment_id, group_id, confirmed_by, confirmed_at`,
+      [assignmentId, groupId, studentId]
+    );
+
+    return res.status(201).json({
+      message: 'Submission confirmed successfully',
+      submission: {
+        ...insertResult.rows[0],
+        confirmed_by_name: req.user.name,
+      },
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Already confirmed' });
+    }
+    return next(err);
+  }
+};
+
 module.exports = {
   getStudentAssignments,
+  confirmSubmission,
 };
