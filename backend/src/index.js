@@ -19,7 +19,20 @@ const app  = express();
 const PORT = process.env.PORT || 5000;
 
 // ── Global middleware ─────────────────────────────────────────────────────────
-app.use(cors());
+const corsOriginEnv = process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:5173';
+const allowedOrigins = corsOriginEnv.split(',').map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // ── Routes ───────────────────────────────────────────────────────────────────
