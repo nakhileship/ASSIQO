@@ -35,6 +35,14 @@ export default function StudentDashboard() {
     fetchAssignments();
   }, []);
 
+  // Auto-dismiss toast message after 5 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
   const totalCount = assignments.length;
   const submittedCount = assignments.filter((a) => a.submission?.submitted).length;
   const progressPercent = totalCount > 0 ? Math.round((submittedCount / totalCount) * 100) : 0;

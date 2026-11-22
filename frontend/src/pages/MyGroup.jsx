@@ -44,6 +44,14 @@ export default function MyGroup() {
     fetchGroup();
   }, []);
 
+  // Auto-dismiss success message after 5 seconds
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     setCreateError('');
