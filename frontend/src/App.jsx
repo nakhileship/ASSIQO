@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute, RoleRoute } from './components/RouteGuards';
+import Layout from './components/Layout';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -34,23 +35,25 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public routes */}
+          {/* Public authentication routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
+          {/* Authenticated routes with shared Layout */}
           <Route element={<ProtectedRoute />}>
-            {/* Student routes */}
-            <Route element={<RoleRoute allowedRoles={['student']} />}>
-              <Route path="/dashboard" element={<StudentDashboard />} />
-              <Route path="/group" element={<MyGroup />} />
-            </Route>
+            <Route element={<Layout />}>
+              {/* Student routes */}
+              <Route element={<RoleRoute allowedRoles={['student']} />}>
+                <Route path="/dashboard" element={<StudentDashboard />} />
+                <Route path="/group" element={<MyGroup />} />
+              </Route>
 
-            {/* Admin routes */}
-            <Route element={<RoleRoute allowedRoles={['admin']} />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/assignments" element={<AdminAssignments />} />
-              <Route path="/admin/assignments/:id" element={<AdminAssignmentDetail />} />
+              {/* Admin routes */}
+              <Route element={<RoleRoute allowedRoles={['admin']} />}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/assignments" element={<AdminAssignments />} />
+                <Route path="/admin/assignments/:id" element={<AdminAssignmentDetail />} />
+              </Route>
             </Route>
           </Route>
 
