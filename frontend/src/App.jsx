@@ -1,12 +1,64 @@
 import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProtectedRoute, RoleRoute } from './components/RouteGuards';
+
+import Login from './pages/Login';
+import Register from './pages/Register';
+import StudentDashboard from './pages/StudentDashboard';
+import MyGroup from './pages/MyGroup';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminAssignments from './pages/AdminAssignments';
+import AdminAssignmentDetail from './pages/AdminAssignmentDetail';
+
+function RootRedirect() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+}
 
 export default function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-brand-600">ASSIQO</h1>
-        <p className="text-slate-600 mt-2">Student, Group & Assignment Management</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            {/* Student routes */}
+            <Route element={<RoleRoute allowedRoles={['student']} />}>
+              <Route path="/dashboard" element={<StudentDashboard />} />
+              <Route path="/group" element={<MyGroup />} />
+            </Route>
+
+            {/* Admin routes */}
+            <Route element={<RoleRoute allowedRoles={['admin']} />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/assignments" element={<AdminAssignments />} />
+              <Route path="/admin/assignments/:id" element={<AdminAssignmentDetail />} />
+            </Route>
+          </Route>
+
+          {/* Root and fallback */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
