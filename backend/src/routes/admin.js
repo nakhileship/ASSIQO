@@ -7,6 +7,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/role');
 const adminAssignmentController = require('../controllers/adminAssignmentController');
+const adminTrackingController   = require('../controllers/adminTrackingController');
 
 const router = express.Router();
 
@@ -27,5 +28,8 @@ router.get('/ping', (req, res) => {
 router.post('/assignments', adminAssignmentController.createAssignment);
 router.put('/assignments/:id', adminAssignmentController.updateAssignment);
 router.get('/assignments', adminAssignmentController.getAssignments);
+
+// Assignment submission tracking
+router.get('/assignments/:id/submissions', adminTrackingController.getAssignmentSubmissions);
 
 module.exports = router;
