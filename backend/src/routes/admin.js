@@ -16,15 +16,6 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(requireRole('admin'));
 
-// Temporary test route to verify role protection (removed in Task 7)
-router.get('/ping', (req, res) => {
-  return res.json({
-    message: 'pong',
-    admin: req.user.email,
-    role: req.user.role,
-  });
-});
-
 // Assignment management
 router.post('/assignments', adminAssignmentController.createAssignment);
 router.put('/assignments/:id', adminAssignmentController.updateAssignment);
