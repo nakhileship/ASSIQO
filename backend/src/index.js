@@ -10,6 +10,7 @@ const cors    = require('cors');
 
 const healthRouter = require('./routes/health');
 const authRouter   = require('./routes/auth');
+const errorHandler = require('./middleware/errorHandler');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -29,12 +30,8 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Generic error handler
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  console.error('[error]', err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+// Centralized error handler
+app.use(errorHandler);
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
