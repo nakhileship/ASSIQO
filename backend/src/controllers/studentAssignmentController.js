@@ -1,14 +1,14 @@
 /**
  * src/controllers/studentAssignmentController.js
- * Student assignment listing and group submission confirmation.
+ * Student assignment listing and submission confirmation (group and individual).
  */
 
 const pool = require('../db/pool');
 
 /**
  * GET /api/assignments
- * Returns assignments visible to student's group.
- * If student is not in a group, returns { has_group: false, assignments: [] }.
+ * Returns assignments visible to the student (mode='all', group in assignment_groups, or student in assignment_students).
+ * Includes subject, admin_name, submission status, and student_context.
  */
 const getStudentAssignments = async (req, res, next) => {
   try {
@@ -16,18 +16,21 @@ const getStudentAssignments = async (req, res, next) => {
 
     // Check student's group membership
     const groupResult = await pool.query(
-      'SELECT group_id FROM group_members WHERE user_id = $1',
+      `SELECT g.id AS group_id, g.name AS group_name
+       FROM group_members gm
+       JOIN groups g ON gm.group_id = g.id
+       WHERE gm.user_id = $1`,
       [studentId]
     );
 
-    if (groupResult.rows.length === 0) {
-      return res.json({
-        has_group: false,
-        assignments: [],
-      });
-    }
+    const hasGroup = groupResult.rows.length > 0;
+    const groupId = hasGroup ? groupResult.rows[0].group_id : null;
+    const groupName = hasGroup ? groupResult.rows[0].group_name : null;
 
-    const groupId = groupResult.rows[0].group_id;
+    const studentContext = {
+      type: hasGroup ? 'group' : 'individual',
+      group_name: groupName,
+    };
 
     const query = `
       SELECT 
@@ -36,26 +39,35 @@ const getStudentAssignments = async (req, res, next) => {
         a.description,
         a.due_date,
         a.onedrive_link,
-        a.assign_to_all,
+        a.assign_mode,
         a.created_at,
+        creator.name AS admin_name,
+        COALESCE(creator.subject, 'General') AS subject,
         s.id AS submission_id,
         s.confirmed_at,
-        u.name AS confirmed_by_name
+        sub_user.name AS confirmed_by_name
       FROM assignments a
+      JOIN users creator ON creator.id = a.created_by
       LEFT JOIN submissions s 
-        ON s.assignment_id = a.id AND s.group_id = $1
-      LEFT JOIN users u 
-        ON u.id = s.confirmed_by
+        ON s.assignment_id = a.id AND (
+          ($1::int IS NOT NULL AND s.group_id = $1::int) OR
+          ($1::int IS NULL AND s.user_id = $2)
+        )
+      LEFT JOIN users sub_user ON sub_user.id = s.confirmed_by
       WHERE 
-        a.assign_to_all = TRUE
-        OR EXISTS (
+        a.assign_mode = 'all'
+        OR ($1::int IS NOT NULL AND EXISTS (
           SELECT 1 FROM assignment_groups ag 
-          WHERE ag.assignment_id = a.id AND ag.group_id = $1
+          WHERE ag.assignment_id = a.id AND ag.group_id = $1::int
+        ))
+        OR EXISTS (
+          SELECT 1 FROM assignment_students ast 
+          WHERE ast.assignment_id = a.id AND ast.user_id = $2
         )
       ORDER BY a.due_date ASC
     `;
 
-    const result = await pool.query(query, [groupId]);
+    const result = await pool.query(query, [groupId, studentId]);
 
     const assignments = result.rows.map((row) => ({
       id: row.id,
@@ -63,7 +75,11 @@ const getStudentAssignments = async (req, res, next) => {
       description: row.description,
       due_date: row.due_date,
       onedrive_link: row.onedrive_link,
-      assign_to_all: row.assign_to_all,
+      assign_mode: row.assign_mode,
+      assign_to_all: row.assign_mode === 'all',
+      subject: row.subject,
+      admin_name: row.admin_name,
+      submission_type: hasGroup ? 'group' : 'individual',
       created_at: row.created_at,
       submission: {
         submitted: row.submission_id !== null,
@@ -73,8 +89,9 @@ const getStudentAssignments = async (req, res, next) => {
     }));
 
     return res.json({
-      has_group: true,
+      has_group: hasGroup,
       group_id: groupId,
+      student_context: studentContext,
       assignments,
     });
   } catch (err) {
@@ -84,8 +101,8 @@ const getStudentAssignments = async (req, res, next) => {
 
 /**
  * POST /api/assignments/:id/confirm
- * Confirms submission for the student's group.
- * Rejects with 409 if already confirmed.
+ * Confirms submission for the student (group-level if in group, individual if not).
+ * Returns 409 if already confirmed.
  */
 const confirmSubmission = async (req, res, next) => {
   try {
@@ -96,21 +113,21 @@ const confirmSubmission = async (req, res, next) => {
 
     const studentId = req.user.id;
 
-    // 1. Must be in a group
+    // Check student's group membership
     const groupResult = await pool.query(
-      'SELECT group_id FROM group_members WHERE user_id = $1',
+      `SELECT g.id AS group_id, g.name AS group_name
+       FROM group_members gm
+       JOIN groups g ON gm.group_id = g.id
+       WHERE gm.user_id = $1`,
       [studentId]
     );
 
-    if (groupResult.rows.length === 0) {
-      return res.status(400).json({ error: 'You must be in a group to confirm submission' });
-    }
+    const hasGroup = groupResult.rows.length > 0;
+    const groupId = hasGroup ? groupResult.rows[0].group_id : null;
 
-    const groupId = groupResult.rows[0].group_id;
-
-    // 2. Check assignment exists and is visible to that group
+    // Check assignment existence and visibility
     const assignmentResult = await pool.query(
-      'SELECT id, title, assign_to_all FROM assignments WHERE id = $1',
+      'SELECT id, title, assign_mode FROM assignments WHERE id = $1',
       [assignmentId]
     );
 
@@ -120,33 +137,67 @@ const confirmSubmission = async (req, res, next) => {
 
     const assignment = assignmentResult.rows[0];
 
-    if (!assignment.assign_to_all) {
-      const visibilityCheck = await pool.query(
-        'SELECT 1 FROM assignment_groups WHERE assignment_id = $1 AND group_id = $2',
-        [assignmentId, groupId]
-      );
-      if (visibilityCheck.rows.length === 0) {
-        return res.status(403).json({ error: 'This assignment is not assigned to your group' });
+    // Check assignment visibility for student
+    let isTargeted = false;
+    if (assignment.assign_mode === 'all') {
+      isTargeted = true;
+    } else {
+      if (hasGroup) {
+        const groupTarget = await pool.query(
+          'SELECT 1 FROM assignment_groups WHERE assignment_id = $1 AND group_id = $2',
+          [assignmentId, groupId]
+        );
+        if (groupTarget.rows.length > 0) isTargeted = true;
+      }
+
+      if (!isTargeted) {
+        const studentTarget = await pool.query(
+          'SELECT 1 FROM assignment_students WHERE assignment_id = $1 AND user_id = $2',
+          [assignmentId, studentId]
+        );
+        if (studentTarget.rows.length > 0) isTargeted = true;
       }
     }
 
-    // 3. Check if already confirmed
-    const existingSubmission = await pool.query(
-      'SELECT id FROM submissions WHERE assignment_id = $1 AND group_id = $2',
-      [assignmentId, groupId]
-    );
+    if (!isTargeted) {
+      return res.status(403).json({ error: 'This assignment is not assigned to you' });
+    }
+
+    // Check if already confirmed
+    let existingSubmission;
+    if (hasGroup) {
+      existingSubmission = await pool.query(
+        'SELECT id FROM submissions WHERE assignment_id = $1 AND group_id = $2',
+        [assignmentId, groupId]
+      );
+    } else {
+      existingSubmission = await pool.query(
+        'SELECT id FROM submissions WHERE assignment_id = $1 AND user_id = $2',
+        [assignmentId, studentId]
+      );
+    }
 
     if (existingSubmission.rows.length > 0) {
       return res.status(409).json({ error: 'Already confirmed' });
     }
 
-    // 4. Record submission
-    const insertResult = await pool.query(
-      `INSERT INTO submissions (assignment_id, group_id, confirmed_by)
-       VALUES ($1, $2, $3)
-       RETURNING id, assignment_id, group_id, confirmed_by, confirmed_at`,
-      [assignmentId, groupId, studentId]
-    );
+    // Record submission
+    let insertResult;
+    if (hasGroup) {
+      insertResult = await pool.query(
+        `INSERT INTO submissions (assignment_id, group_id, user_id, confirmed_by)
+         VALUES ($1, $2, NULL, $3)
+         RETURNING id, assignment_id, group_id, user_id, confirmed_by, confirmed_at`,
+        [assignmentId, groupId, studentId]
+      );
+    } else {
+      insertResult = await pool.query(
+        `INSERT INTO submissions (assignment_id, group_id, user_id, confirmed_by)
+         VALUES ($1, NULL, $2, $3)
+         RETURNING id, assignment_id, group_id, user_id, confirmed_by, confirmed_at`,
+        [assignmentId, studentId, studentId]
+      );
+    }
 
     return res.status(201).json({
       message: 'Submission confirmed successfully',
