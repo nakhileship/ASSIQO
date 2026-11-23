@@ -1,6 +1,6 @@
 # ASSIQO — Student, Group & Assignment Management System
 
-> **ASSIQO** is a modern, responsive full-stack platform designed for universities and academic bootcamps. It streamlines team formation, OneDrive-based assignment distribution, group-wide submission tracking, and real-time professor analytics.
+> **ASSIQO** is a modern, responsive full-stack platform designed for universities and academic bootcamps. It streamlines multi-admin subject assignments, team formation, OneDrive-based distribution, individual and group submission tracking, and real-time professor analytics.
 
 ---
 
@@ -29,41 +29,55 @@
 
 ## 1. Overview & Key Features
 
-ASSIQO bridges the gap between collaborative coursework and professor grading workflows. Instead of managing chaotic spreadsheets and shared folder links, ASSIQO provides structured group accountability and clear progress visibility.
+ASSIQO bridges the gap between collaborative coursework and professor grading workflows across multiple subjects and academic departments. Instead of managing chaotic spreadsheets and shared folder links, ASSIQO provides structured group accountability and clear progress visibility.
 
 ### Student Experience
 - **Dynamic Dashboard (`/dashboard`)**:
-  - Live progress bar tracking completed vs. pending group assignments.
+  - Live progress bar tracking completed vs. pending assignments.
+  - Top status pill indicator: **Group: `<name>`** (purple) or **Individual (no group)** (amber) with direct navigation to group management.
+  - Each card displays a course **Subject badge** (e.g. *Data Structures*, *Web Development*), the assigned **Professor name**, and submission category (`👥 Group submission` or `👤 Individual submission`).
   - Interactive status badges: `Pending`, `Submitted`, and `Overdue`.
   - Direct OneDrive submission links that open securely in a new tab (`rel="noopener noreferrer"`).
-  - Filter tabs: **All**, **Pending**, and **Submitted**.
-  - Un-grouped banner notification redirecting students to group creation if they have not joined a team.
+  - Dual filter controls: Status tabs (**All**, **Pending**, **Submitted**) + **Subject dropdown** filter.
 - **Two-Step Submission Confirmation Modal (`SubmitConfirmModal`)**:
-  - **Step 1:** Verifies that the student has actually uploaded files to the OneDrive folder.
-  - **Step 2:** Explicit group confirmation warning that confirms submission for the entire group.
+  - **Step 1:** Verifies that the student has uploaded completed work to the OneDrive folder.
+  - **Step 2:** Context-aware confirmation:
+    - *For grouped students:* Confirms submission for the entire group with group-wide status updates.
+    - *For ungrouped students:* Confirms individual submission recorded directly under the student's ID.
   - Immediate optimistic UI update with graceful `409 Conflict` resolution if another team member submitted concurrently.
 - **My Group Management (`/group`)**:
-  - Create a new project group or manage an existing team.
+  - Form new project teams or manage existing teammates.
   - Add teammates by email with instant error handling (user not found, user already in a group).
   - Member list with "You" self-identifier tag, role indicators, and join timestamps.
   - Leave group and remove member actions with safety confirmation dialogues.
 
 ### Professor / Admin Experience
+- **Multi-Admin Subject Isolation**:
+  - Professors provide their teaching subject upon registration (e.g. *Data Structures*, *Web Development*).
+  - Dashboards, assignments, analytics charts, and tracking rosters automatically scope strictly to the authenticated professor's authored coursework.
 - **Admin Dashboard (`/admin`)**:
+  - Subject badge prominently displayed in the header.
   - 5 high-level KPI cards: Total Students, Total Groups, Total Assignments, Total Confirmed Submissions, and Overall Completion Percentage.
-  - Interactive **Recharts** stacked bar chart showing Per-Assignment completion metrics (Confirmed vs. Pending groups) with custom tooltips.
+  - Interactive **Recharts** stacked bar chart showing Per-Assignment completion metrics (Confirmed vs. Pending targets) with custom tooltips.
   - Quick action shortcut to create new assignments.
 - **Assignment Management (`/admin/assignments`)**:
-  - Complete list of assignments with status progress bars and group targeting badges.
+  - Complete list of assignments with status progress bars, subject tags, and scope badges.
   - **Create / Edit Assignment Modal**:
     - Title, description, and datetime-local picker for due dates.
     - Validated OneDrive submission URL input.
-    - Scope toggle: **All Students** or **Specific Groups** with interactive group checklist and member counts.
+    - Three-way Assignment Scope:
+      1. **All Students**: Available across all active students and groups.
+      2. **Specific Groups**: Interactive multi-select checklist of active teams with member counts.
+      3. **Specific Students**: Searchable checklist of individual learners with student email and team tags.
+- **Dedicated Admin Groups Page (`/admin/groups`)**:
+  - Comprehensive directory of all student teams presented in responsive cards.
+  - Member list with name, email, member count badges, and formation date.
+  - Real-time instant search by team name or student email.
 - **Submission Tracking Detail (`/admin/assignments/:id`)**:
   - High-level progress header with overall confirmation percentage.
   - **Group-wise View Tab**: Lists all assigned teams, group members, status badges, who confirmed the submission, and the exact timestamp.
-  - **Student-wise View Tab**: Breaks down submission status by individual student, displaying their group name and confirmation status.
-  - Real-time search filter (searches by student name, email, or group name) and status filter (**All**, **Confirmed**, **Pending**).
+  - **Student-wise View Tab**: Complete student roster with individual submission category (`Group` vs. `Individual`), group name, status, and confirmation timestamps.
+  - Real-time search filter and status filter (**All**, **Confirmed**, **Pending**).
   - Responsive tables with horizontal scroll support on mobile displays.
 
 ---
@@ -89,7 +103,7 @@ ASSIQO bridges the gap between collaborative coursework and professor grading wo
 
 ## 3. Architecture Overview
 
-ASSIQO uses a decoupled client-server architecture with stateless token-based authorization and relational data persistence.
+ASSIQO uses a decoupled client-server architecture with stateless token-based authorization, per-admin role isolation, and relational data persistence.
 
 ```mermaid
 flowchart TD
@@ -106,10 +120,10 @@ flowchart TD
     subgraph BackendAPI ["Backend Layer (Express on Node.js)"]
         SecMiddleware["Security: Helmet + RateLimiter + CORS"]
         Router["Express Router (/api)"]
-        AuthMiddleware["authMiddleware (JWT Verify)"]
+        AuthMiddleware["authMiddleware (JWT Verify & User Load)"]
         RoleMiddleware["requireRole('admin' | 'student')"]
         ZodValidator["validate(ZodSchema)"]
-        Controllers["Controllers (Raw SQL Transactions)"]
+        Controllers["Controllers (Scoped SQL Transactions)"]
     end
 
     subgraph DataStore ["Database Layer (PostgreSQL 16)"]
@@ -133,20 +147,22 @@ flowchart TD
 
 ## 4. Database Schema & ER Diagram
 
-The database consists of 6 relational tables designed with strict integrity constraints, foreign key cascades, and unique composite indexes.
+The database consists of 7 relational tables designed with strict integrity constraints, foreign key cascades, and partial unique indexes for hybrid submission modes.
 
 ```mermaid
 erDiagram
     USERS ||--o{ GROUPS : "creates"
     USERS ||--o{ GROUP_MEMBERS : "belongs to"
     USERS ||--o{ ASSIGNMENTS : "authors (admin)"
-    USERS ||--o{ SUBMISSIONS : "confirms"
+    USERS ||--o{ ASSIGNMENT_STUDENTS : "targeted individually"
+    USERS ||--o{ SUBMISSIONS : "confirms / submits"
     
     GROUPS ||--|{ GROUP_MEMBERS : "has"
     GROUPS ||--o{ ASSIGNMENT_GROUPS : "assigned to"
-    GROUPS ||--o{ SUBMISSIONS : "submits"
+    GROUPS ||--o{ SUBMISSIONS : "submits (group)"
     
-    ASSIGNMENTS ||--o{ ASSIGNMENT_GROUPS : "targets"
+    ASSIGNMENTS ||--o{ ASSIGNMENT_GROUPS : "targets groups"
+    ASSIGNMENTS ||--o{ ASSIGNMENT_STUDENTS : "targets students"
     ASSIGNMENTS ||--o{ SUBMISSIONS : "receives"
 
     USERS {
@@ -155,6 +171,7 @@ erDiagram
         string email UK
         string password_hash
         string role "student | admin"
+        string subject "admin course (nullable)"
         timestamp created_at
     }
 
@@ -177,7 +194,7 @@ erDiagram
         text description
         timestamp due_date
         text onedrive_link
-        boolean assign_to_all
+        string assign_mode "all | groups | students"
         int created_by FK
         timestamp created_at
     }
@@ -187,22 +204,32 @@ erDiagram
         int group_id PK, FK
     }
 
+    ASSIGNMENT_STUDENTS {
+        int assignment_id PK, FK
+        int user_id PK, FK
+    }
+
     SUBMISSIONS {
         int id PK
         int assignment_id FK
-        int group_id FK
+        int group_id "FK, nullable"
+        int user_id "FK, nullable"
         int confirmed_by FK
         timestamp confirmed_at
     }
 ```
 
 ### Table Definitions
-1. **`users`**: Stores students and professors. Role is constrained to `('student', 'admin')`. Email is unique and lowercased.
+1. **`users`**: Stores students and professors. Role is constrained to `('student', 'admin')`. The `subject` column holds the professor's taught discipline (e.g. *Data Structures*).
 2. **`groups`**: Student project teams created by an initial student.
 3. **`group_members`**: Junction table mapping students to groups. The `UNIQUE (user_id)` constraint guarantees that **a student can belong to at most one group at a time**.
-4. **`assignments`**: Course tasks created by professors with due dates and OneDrive cloud folders.
-5. **`assignment_groups`**: Junction table mapping an assignment to specific groups when `assign_to_all = FALSE`.
-6. **`submissions`**: Single source of truth for group submissions. The `UNIQUE (assignment_id, group_id)` constraint guarantees that **each group has exactly one submission record per assignment**.
+4. **`assignments`**: Course tasks created by professors with due dates, OneDrive cloud folders, and `assign_mode` (`'all'`, `'groups'`, `'students'`).
+5. **`assignment_groups`**: Junction table mapping an assignment to target groups when `assign_mode = 'groups'`.
+6. **`assignment_students`**: Junction table mapping an assignment to target individual students when `assign_mode = 'students'`.
+7. **`submissions`**: Single source of truth for all confirmed submissions.
+   - Enforces a CHECK constraint: `(group_id IS NOT NULL AND user_id IS NULL) OR (group_id IS NULL AND user_id IS NOT NULL)`.
+   - Partial unique index on `(assignment_id, group_id) WHERE group_id IS NOT NULL` prevents duplicate group submissions.
+   - Partial unique index on `(assignment_id, user_id) WHERE user_id IS NOT NULL` prevents duplicate individual submissions.
 
 ---
 
@@ -218,9 +245,9 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 ### Authentication (`/api/auth`)
 | Method | Path | Auth / Role | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | Public (Rate-limited) | Register new student or admin (`name`, `email`, `password`, `role`) |
-| `POST` | `/api/auth/login` | Public (Rate-limited) | Login with email and password; returns JWT token and user info |
-| `GET` | `/api/auth/me` | Authenticated | Retrieve the authenticated user's profile |
+| `POST` | `/api/auth/register` | Public (Rate-limited) | Register student or admin (`name`, `email`, `password`, `role`, `subject` [required for admins]) |
+| `POST` | `/api/auth/login` | Public (Rate-limited) | Login with email and password; returns JWT token, user info, and subject |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve the authenticated user's profile and subject |
 
 ### Groups (`/api/groups`)
 | Method | Path | Auth / Role | Description |
@@ -233,18 +260,19 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 ### Student Assignments (`/api/assignments`)
 | Method | Path | Auth / Role | Description |
 |---|---|---|---|
-| `GET` | `/api/assignments` | Student | List assignments assigned to the student's group, with submission status |
-| `POST` | `/api/assignments/:id/confirm` | Student (In Group) | Two-step confirmed submission for the user's entire team |
+| `GET` | `/api/assignments` | Student | List assignments visible to student (mode=all, group assigned, or student assigned), with subject, admin name, submission type, and student context |
+| `POST` | `/api/assignments/:id/confirm` | Student | Two-step confirmed submission: group-level if in a group, individual submission if ungrouped |
 
 ### Admin & Professor Management (`/api/admin`)
 | Method | Path | Auth / Role | Description |
 |---|---|---|---|
-| `GET` | `/api/admin/analytics` | Admin | Summary KPIs and per-assignment breakdown for stacked bar chart |
-| `GET` | `/api/admin/assignments` | Admin | List all assignments with confirmation and pending counts |
-| `POST` | `/api/admin/assignments` | Admin | Create assignment (`title`, `description`, `due_date`, `onedrive_link`, `assign_to_all`, `group_ids`) |
-| `PUT` | `/api/admin/assignments/:id` | Admin | Update an existing assignment and its assigned group targets |
-| `GET` | `/api/admin/groups` | Admin | List all existing student groups for assignment targeting checklist |
-| `GET` | `/api/admin/assignments/:id/submissions` | Admin | Deep submission audit with both group-wise and student-wise rosters |
+| `GET` | `/api/admin/analytics` | Admin | Summary KPIs and per-assignment chart data scoped strictly to this admin's created assignments |
+| `GET` | `/api/admin/assignments` | Admin | List assignments authored by the authenticated professor with confirmed/pending counts |
+| `POST` | `/api/admin/assignments` | Admin | Create assignment (`title`, `description`, `due_date`, `onedrive_link`, `assign_mode`, `group_ids`, `student_ids`) |
+| `PUT` | `/api/admin/assignments/:id` | Admin | Update assignment owned by this admin (returns 403 if not author) |
+| `GET` | `/api/admin/groups` | Admin | List all student groups with member count and full roster array (`id`, `name`, `email`) |
+| `GET` | `/api/admin/students` | Admin | List all students with `id`, `name`, `email`, and `group_name` |
+| `GET` | `/api/admin/assignments/:id/submissions` | Admin | Deep tracking roster scoped to this admin's assignment with group-wise and student-wise views |
 
 ---
 
@@ -309,9 +337,9 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:5173
 NODE_ENV=development
 ```
 
-Initialize the database schema and demo seed data:
+Initialize the database schema, run migrations, and load seed data:
 ```bash
-# Run schema.sql and seed.sql automatically
+# Run schema.sql, all migrations in order, and seed.sql automatically
 npm run db:init
 
 # Start development server with nodemon
@@ -363,40 +391,46 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 All seeded test users share the password: `password123`
 
-| Name | Email | Role | Initial Group Membership |
+| Name | Email | Role | Subject / Group Details |
 |---|---|---|---|
-| **Prof. Admin** | `admin@assiqo.dev` | `admin` | *N/A (Professor account)* |
-| **Alice Walker** | `alice@assiqo.dev` | `student` | **Team Alpha** (Creator) |
-| **Bob Harris** | `bob@assiqo.dev` | `student` | **Team Alpha** (Member) |
-| **Carol Danvers** | `carol@assiqo.dev` | `student` | *No Group (Ungrouped)* |
-| **Dave Miller** | `dave@assiqo.dev` | `student` | *No Group (Ungrouped)* |
+| **Prof. Alan Turing** | `admin@assiqo.dev` | `admin` | **Subject:** *Data Structures* |
+| **Prof. Grace Hopper** | `webadmin@assiqo.dev` | `admin` | **Subject:** *Web Development* |
+| **Alice Johnson** | `alice@assiqo.dev` | `student` | **Team Alpha** (Group Creator) |
+| **Bob Smith** | `bob@assiqo.dev` | `student` | **Team Alpha** (Group Member) |
+| **Carol White** | `carol@assiqo.dev` | `student` | *No Group (Individual Learner)* |
+| **Dave Brown** | `dave@assiqo.dev` | `student` | *No Group (Individual Learner)* |
 
 ---
 
 ## 8. Key Design Decisions
 
-1. **Group-Level Submissions (Single Record per Group & Assignment)**:
-   - In group projects, grading and submission state belong to the team, not separate disconnected students.
-   - By creating a `submissions` table with a `UNIQUE (assignment_id, group_id)` constraint, confirming a submission marks it for every student in the team instantly. The `confirmed_by` column preserves individual accountability by recording exactly which teammate finalized the submission.
+1. **Multi-Admin Subject Scoping**:
+   - Professors manage independent subjects. Every assignment created is tied to `created_by = req.user.id`.
+   - The analytics overview, assignment listings, and tracking dashboards filter strictly to the authenticated admin's own courses, preventing cross-professor contamination while keeping a single unified student body.
 
-2. **Strict One Group Per Student Policy**:
+2. **Hybrid Group and Individual Submissions**:
+   - Coursework can be assigned to **All Students**, **Specific Groups**, or **Specific Individual Students**.
+   - If a student belongs to a group, confirming a submission records a group-level submission (`group_id`), instantly marking it submitted for all teammates.
+   - If a student has no group, confirming creates an individual submission (`user_id`). The partial unique indexes on `submissions` guarantee that no group or student can submit more than once per task.
+
+3. **Strict One Group Per Student Policy**:
    - Enforced directly at the database engine level via `UNIQUE (user_id)` on `group_members`.
    - Eliminates split-loyalty edge cases where a student could belong to competing teams on the same assignment.
 
-3. **Stateless JWT Authorization with Role Guard Middleware**:
+4. **Stateless JWT Authorization with Role Guard Middleware**:
    - Eliminates server-side session memory overhead.
-   - Express route middleware (`authMiddleware` and `requireRole`) verifies the signature and validates roles in linear time, guaranteeing admin endpoints are impenetrable to students.
+   - Route middleware (`authMiddleware` and `requireRole`) verifies cryptographic signatures and validates permissions, guaranteeing admin endpoints are inaccessible to students.
 
-4. **Two-Step Submission Confirmation Modal**:
-   - Prevents accidental one-click submissions. Step 1 forces verification that work was uploaded to the cloud folder. Step 2 requires explicit group-wide confirmation. If two students submit simultaneously, the backend rejects the second request with `409 Conflict`, which the UI handles smoothly without losing state.
+5. **Two-Step Submission Confirmation Modal**:
+   - Prevents accidental one-click submissions. Step 1 forces verification that work was uploaded to the cloud folder. Step 2 provides dynamic confirmation tailored to group or individual context. Duplicate simultaneous submissions are rejected gracefully with `409 Conflict`.
 
-5. **Raw SQL with Parameterized Queries (`pg`)**:
-   - Instead of heavyweight ORMs that obscure queries, ASSIQO uses standard PostgreSQL queries with parameterized placeholders (`$1, $2`).
-   - Guarantees zero SQL injection vulnerabilities, explicit indexing, and clean ACID transaction blocks (`BEGIN`, `COMMIT`, `ROLLBACK`) for multi-write operations like group creation and assignment targeting.
+6. **Raw SQL with Parameterized Queries (`pg`)**:
+   - Instead of heavyweight ORMs, ASSIQO uses standard PostgreSQL queries with parameterized placeholders (`$1, $2`).
+   - Guarantees zero SQL injection vulnerabilities, explicit indexing, and clean ACID transaction blocks (`BEGIN`, `COMMIT`, `ROLLBACK`) for multi-write operations.
 
-6. **Zod Validation on All Requests**:
+7. **Zod Validation on All Requests**:
    - Schema validation runs before any controller logic executes.
-   - Sanitizes inputs (e.g. trimming strings, lowercasing emails, URL validation for OneDrive links) and provides predictable `{ error: "message" }` responses.
+   - Validates that admin accounts provide a teaching subject, checks due dates, sanitizes URLs, and guarantees consistent `{ error: "message" }` responses.
 
 ---
 
@@ -443,7 +477,7 @@ All seeded test users share the password: `password123`
 
 ## 10. Known Limitations & Roadmap
 
-While ASSIQO fulfills all core requirements for group coursework tracking, future iterations will introduce:
+While ASSIQO fulfills all core requirements for university coursework tracking, future iterations will introduce:
 - **Email Invitations & Notifications**: Real-time email dispatch (SendGrid / Resend) notifying students when an assignment is posted or when a teammate confirms submission.
 - **Direct File Upload & Storage**: S3 / Azure Blob Storage integration with file type verification and antivirus scanning alongside external OneDrive links.
 - **Admin Invite Tokens**: Restrict admin account creation via invite codes or domain-based whitelist rather than open role selection during registration.
