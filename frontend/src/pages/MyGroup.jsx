@@ -234,22 +234,22 @@ export default function MyGroup() {
                     key={member.id}
                     className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
                         {member.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-900 leading-tight">
+                          <p className="text-sm font-bold text-slate-900 leading-tight truncate">
                             {member.name}
                           </p>
                           {isSelf && (
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-50 text-brand-700 border border-brand-200">
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-50 text-brand-700 border border-brand-200 flex-shrink-0">
                               You
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{member.email}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{member.email}</p>
                       </div>
                     </div>
 
