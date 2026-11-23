@@ -57,6 +57,9 @@ export default function Navbar() {
                   <NavLink to="/admin/assignments" className={navLinkClasses}>
                     Assignments
                   </NavLink>
+                  <NavLink to="/admin/groups" className={navLinkClasses}>
+                    Groups
+                  </NavLink>
                 </>
               )}
             </div>
@@ -69,7 +72,9 @@ export default function Navbar() {
                 <p className="text-sm font-semibold text-slate-900 leading-tight">
                   {user?.name || 'User'}
                 </p>
-                <p className="text-xs text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-500">
+                  {isAdmin && user?.subject ? user.subject : user?.email}
+                </p>
               </div>
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
@@ -78,7 +83,7 @@ export default function Navbar() {
                     : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                 }`}
               >
-                {user?.role}
+                {isAdmin && user?.subject ? `${user.role} • ${user.subject}` : user?.role}
               </span>
             </div>
 
@@ -151,6 +156,13 @@ export default function Navbar() {
                   className="block px-3 py-2 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-100"
                 >
                   Assignments
+                </Link>
+                <Link
+                  to="/admin/groups"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Groups
                 </Link>
               </>
             )}

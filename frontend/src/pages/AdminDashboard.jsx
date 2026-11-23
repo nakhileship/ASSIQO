@@ -15,8 +15,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -90,15 +92,22 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Admin Analytics Dashboard
             </h1>
-            <p className="text-slate-600 mt-1">
-              Real-time tracking of student groups, assignments, and submission progress.
-            </p>
+            {user?.subject && (
+              <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                {user.subject}
+              </span>
+            )}
           </div>
+          <p className="text-slate-600 mt-1">
+            Real-time tracking of student submissions for your subject assignments.
+          </p>
+        </div>
           <div className="flex items-center gap-3">
             <Button
               variant="outline"

@@ -6,8 +6,10 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Spinner } from '../components/ui/Spinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminAssignments() {
+  const { user } = useAuth();
   const [assignments, setAssignments] = useState([]);
   const [availableGroups, setAvailableGroups] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
@@ -261,9 +263,16 @@ export default function AdminAssignments() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Assignments Management
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Assignments Management
+            </h1>
+            {user?.subject && (
+              <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                {user.subject}
+              </span>
+            )}
+          </div>
           <p className="text-slate-600 mt-1">
             Create, edit, and track student group and individual assignment submissions.
           </p>

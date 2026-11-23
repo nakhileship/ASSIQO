@@ -11,6 +11,7 @@ import MyGroup from './pages/MyGroup';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminAssignments from './pages/AdminAssignments';
 import AdminAssignmentDetail from './pages/AdminAssignmentDetail';
+import AdminGroups from './pages/AdminGroups';
 
 function RootRedirect() {
   const { user, loading } = useAuth();
@@ -53,6 +54,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/assignments" element={<AdminAssignments />} />
                 <Route path="/admin/assignments/:id" element={<AdminAssignmentDetail />} />
+                <Route path="/admin/groups" element={<AdminGroups />} />
               </Route>
             </Route>
           </Route>

@@ -4,9 +4,11 @@ import api from '../api/client';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminAssignmentDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -107,17 +109,28 @@ export default function AdminAssignmentDetail() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 {assignment?.title || `Assignment #${id}`}
               </h1>
-              {assignment?.assign_to_all ? (
+              {user?.subject && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                  {user.subject}
+                </span>
+              )}
+              {assignment?.assign_mode === 'all' && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   All Students
                 </span>
-              ) : (
+              )}
+              {assignment?.assign_mode === 'groups' && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                   Specific Groups
+                </span>
+              )}
+              {assignment?.assign_mode === 'students' && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  Specific Students
                 </span>
               )}
             </div>
@@ -354,14 +367,15 @@ export default function AdminAssignmentDetail() {
                     <th className="py-3.5 px-6">Student Name</th>
                     <th className="py-3.5 px-6">Email Address</th>
                     <th className="py-3.5 px-6">Group Name</th>
-                    <th className="py-3.5 px-6">Group Status</th>
+                    <th className="py-3.5 px-6">Type</th>
+                    <th className="py-3.5 px-6">Status</th>
                     <th className="py-3.5 px-6">Confirmed By</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">
+                      <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
                         No students match the selected criteria.
                       </td>
                     </tr>
@@ -379,6 +393,17 @@ export default function AdminAssignmentDetail() {
                           </td>
                           <td className="py-4 px-6 font-medium text-slate-800 whitespace-nowrap">
                             {s.group_name}
+                          </td>
+                          <td className="py-4 px-6 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                s.type === 'Group'
+                                  ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                  : 'bg-blue-100 text-blue-700 border border-blue-200'
+                              }`}
+                            >
+                              {s.type || 'Individual'}
+                            </span>
                           </td>
                           <td className="py-4 px-6 whitespace-nowrap">
                             {isConfirmed ? (
