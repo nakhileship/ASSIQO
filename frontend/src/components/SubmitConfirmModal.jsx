@@ -6,6 +6,7 @@ import { ErrorMessage } from './ui/ErrorMessage';
 export default function SubmitConfirmModal({
   assignment,
   isOpen,
+  hasGroup = true,
   onClose,
   onSuccess,
   onError409,
@@ -15,6 +16,8 @@ export default function SubmitConfirmModal({
   const [error, setError] = useState('');
 
   if (!isOpen || !assignment) return null;
+
+  const isGroup = hasGroup && assignment?.submission_type !== 'individual';
 
   const handleClose = () => {
     if (submitting) return;
@@ -90,7 +93,7 @@ export default function SubmitConfirmModal({
             </div>
 
             <p className="text-sm text-slate-600 leading-relaxed">
-              Have you uploaded your team&apos;s completed work to the OneDrive submission folder?
+              Have you uploaded your {isGroup ? "team's" : 'completed'} work to the OneDrive submission folder?
             </p>
 
             {assignment.onedrive_link && (
@@ -120,7 +123,7 @@ export default function SubmitConfirmModal({
           </div>
         )}
 
-        {/* Step 2: Final group confirmation */}
+        {/* Step 2: Final confirmation (changes text based on isGroup) */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -131,19 +134,30 @@ export default function SubmitConfirmModal({
               </div>
               <div>
                 <h3 className="font-bold text-lg text-slate-900 leading-snug">
-                  Confirm Group Submission
+                  {isGroup ? 'Confirm Group Submission' : 'Confirm Individual Submission'}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">Final confirmation</p>
               </div>
             </div>
 
             <p className="text-sm text-slate-700 leading-relaxed font-medium">
-              Confirm submission for your whole group? This cannot be undone.
+              {isGroup
+                ? 'Confirm submission for your whole group? This cannot be undone.'
+                : 'Confirm your individual submission? This cannot be undone.'}
             </p>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-1">
-              <p>• Your name will be recorded as the member who confirmed.</p>
-              <p>• All group members will have this assignment marked as submitted.</p>
+              {isGroup ? (
+                <>
+                  <p>• Your name will be recorded as the member who confirmed.</p>
+                  <p>• All group members will have this assignment marked as submitted.</p>
+                </>
+              ) : (
+                <>
+                  <p>• Your submission will be recorded for your student account.</p>
+                  <p>• Your professor will be notified of your individual submission.</p>
+                </>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">

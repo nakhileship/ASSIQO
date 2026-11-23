@@ -9,10 +9,12 @@ import SubmitConfirmModal from '../components/SubmitConfirmModal';
 
 export default function StudentDashboard() {
   const [assignments, setAssignments] = useState([]);
-  const [hasGroup, setHasGroup] = useState(true);
+  const [hasGroup, setHasGroup] = useState(false);
+  const [studentContext, setStudentContext] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'pending' | 'submitted'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'submitted'
+  const [subjectFilter, setSubjectFilter] = useState('all');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -22,6 +24,7 @@ export default function StudentDashboard() {
       setError('');
       const res = await api.get('/assignments');
       setHasGroup(res.data.has_group);
+      setStudentContext(res.data.student_context || null);
       setAssignments(res.data.assignments || []);
     } catch (err) {
       console.error('Failed to load assignments:', err);
@@ -47,15 +50,29 @@ export default function StudentDashboard() {
   const submittedCount = assignments.filter((a) => a.submission?.submitted).length;
   const progressPercent = totalCount > 0 ? Math.round((submittedCount / totalCount) * 100) : 0;
 
+  // Extract unique subjects for the filter dropdown
+  const availableSubjects = [
+    'all',
+    ...Array.from(new Set(assignments.map((a) => a.subject).filter(Boolean))),
+  ];
+
   const isOverdue = (dueDate, isSubmitted) => {
     return !isSubmitted && new Date(dueDate) < new Date();
   };
 
   const filteredAssignments = assignments.filter((a) => {
     const submitted = a.submission?.submitted;
-    if (filter === 'pending') return !submitted;
-    if (filter === 'submitted') return submitted;
-    return true;
+    const matchesStatus =
+      statusFilter === 'all'
+        ? true
+        : statusFilter === 'pending'
+        ? !submitted
+        : submitted;
+
+    const matchesSubject =
+      subjectFilter === 'all' ? true : a.subject === subjectFilter;
+
+    return matchesStatus && matchesSubject;
   });
 
   const formatDate = (dateStr) => {
@@ -92,7 +109,7 @@ export default function StudentDashboard() {
 
   const handleSubmission409 = () => {
     setSelectedAssignment(null);
-    setToastMessage('This assignment was already submitted by another member. Syncing status...');
+    setToastMessage('This assignment was already submitted. Syncing latest status...');
     fetchAssignments();
   };
 
@@ -124,6 +141,30 @@ export default function StudentDashboard() {
         </div>
       )}
 
+      {/* Top Banner Badge: Group or Individual */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-slate-500 font-medium">Your Current Status:</div>
+          {hasGroup ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+              <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+              Group: {studentContext?.group_name || 'Active Team'}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+              Individual (no group)
+            </span>
+          )}
+        </div>
+        <Link
+          to="/group"
+          className="text-xs text-brand-600 font-semibold hover:text-brand-700 hover:underline flex items-center gap-1 self-start sm:self-auto"
+        >
+          {hasGroup ? 'View My Group Members' : 'Create or Join a Group'} &rarr;
+        </Link>
+      </div>
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -131,39 +172,15 @@ export default function StudentDashboard() {
             Student Dashboard
           </h1>
           <p className="text-slate-600 mt-1">
-            Track your group assignments, submission links, and completion status.
+            Track your course assignments, cloud submission folders, and completion progress.
           </p>
         </div>
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError('')} />}
 
-      {/* No Group Banner */}
-      {!hasGroup && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="p-2 rounded-xl bg-amber-100 text-amber-700 flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-bold text-amber-900 text-base">You are not in a group yet</h3>
-              <p className="text-amber-800/90 text-sm mt-0.5">
-                Join or create a team to see your assigned tasks and submit your group project.
-              </p>
-            </div>
-          </div>
-          <Link to="/group">
-            <Button variant="primary" className="whitespace-nowrap">
-              Go to My Group &rarr;
-            </Button>
-          </Link>
-        </div>
-      )}
-
       {/* Summary / Progress Bar */}
-      {hasGroup && totalCount > 0 && (
+      {totalCount > 0 && (
         <Card className="bg-gradient-to-br from-white to-slate-50/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
             <div>
@@ -188,9 +205,10 @@ export default function StudentDashboard() {
         </Card>
       )}
 
-      {/* Filter Tabs & Content Section */}
+      {/* Filter Tabs & Subject Dropdown Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-3">
+          {/* Status Tabs */}
           <div className="flex items-center gap-2">
             {[
               { id: 'all', label: 'All' },
@@ -199,9 +217,9 @@ export default function StudentDashboard() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setFilter(tab.id)}
+                onClick={() => setStatusFilter(tab.id)}
                 className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all ${
-                  filter === tab.id
+                  statusFilter === tab.id
                     ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/20'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
@@ -211,9 +229,28 @@ export default function StudentDashboard() {
             ))}
           </div>
 
-          <span className="text-xs font-medium text-slate-500">
-            Showing {filteredAssignments.length} assignment{filteredAssignments.length === 1 ? '' : 's'}
-          </span>
+          {/* Subject Filter Dropdown */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="subjectSelect" className="text-xs font-semibold text-slate-500">
+              Subject:
+            </label>
+            <select
+              id="subjectSelect"
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 focus:ring-brand-500 focus:border-brand-500 bg-white shadow-sm"
+            >
+              {availableSubjects.map((sub) => (
+                <option key={sub} value={sub}>
+                  {sub === 'all' ? 'All Subjects' : sub}
+                </option>
+              ))}
+            </select>
+
+            <span className="text-xs font-medium text-slate-400 hidden sm:inline">
+              ({filteredAssignments.length})
+            </span>
+          </div>
         </div>
 
         {/* Assignment Cards Grid */}
@@ -226,9 +263,9 @@ export default function StudentDashboard() {
             </div>
             <h3 className="text-base font-bold text-slate-800">No assignments found</h3>
             <p className="text-sm text-slate-500 mt-1">
-              {filter === 'all'
-                ? 'Your professor has not assigned any tasks yet.'
-                : `There are currently no ${filter} assignments.`}
+              {statusFilter === 'all' && subjectFilter === 'all'
+                ? 'Your professors have not assigned any tasks yet.'
+                : 'No assignments match your current filters.'}
             </p>
           </div>
         ) : (
@@ -236,6 +273,7 @@ export default function StudentDashboard() {
             {filteredAssignments.map((assignment) => {
               const submitted = assignment.submission?.submitted;
               const overdue = isOverdue(assignment.due_date, submitted);
+              const isGroupSubmission = assignment.submission_type === 'group';
 
               return (
                 <div
@@ -243,8 +281,18 @@ export default function StudentDashboard() {
                   className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-shadow relative"
                 >
                   <div>
-                    {/* Header: Title & Status Badge */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
+                    {/* Header: Subject & Submission Type Badges */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {assignment.subject}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {isGroupSubmission ? '👥 Group submission' : '👤 Individual submission'}
+                      </span>
+                    </div>
+
+                    {/* Title & Status Badge */}
+                    <div className="flex items-start justify-between gap-3 mb-2">
                       <h3 className="font-bold text-lg text-slate-900 leading-snug">
                         {assignment.title}
                       </h3>
@@ -272,6 +320,11 @@ export default function StudentDashboard() {
                       )}
                     </div>
 
+                    {/* Professor name */}
+                    <p className="text-xs text-slate-500 font-medium mb-3">
+                      Professor: <span className="text-slate-700 font-semibold">{assignment.admin_name}</span>
+                    </p>
+
                     {/* Description */}
                     <p className="text-sm text-slate-600 line-clamp-3 mb-4">
                       {assignment.description || 'No description provided.'}
@@ -293,7 +346,7 @@ export default function StudentDashboard() {
                       <div className="bg-emerald-50/70 rounded-xl p-2.5 border border-emerald-100 text-xs text-emerald-900 space-y-0.5">
                         <p>
                           <span className="font-semibold">Confirmed by:</span>{' '}
-                          {assignment.submission.confirmed_by_name || 'Group member'}
+                          {assignment.submission.confirmed_by_name || 'You'}
                         </p>
                         <p className="text-emerald-700">
                           {formatDate(assignment.submission.confirmed_at)}
@@ -321,10 +374,8 @@ export default function StudentDashboard() {
                         <Button
                           variant="primary"
                           size="sm"
-                          disabled={!hasGroup}
                           onClick={() => setSelectedAssignment(assignment)}
                           className="w-full"
-                          title={!hasGroup ? 'You must be in a group to submit' : undefined}
                         >
                           Mark as Submitted
                         </Button>
@@ -342,6 +393,7 @@ export default function StudentDashboard() {
       <SubmitConfirmModal
         assignment={selectedAssignment}
         isOpen={Boolean(selectedAssignment)}
+        hasGroup={hasGroup}
         onClose={() => setSelectedAssignment(null)}
         onSuccess={handleSubmissionSuccess}
         onError409={handleSubmission409}
