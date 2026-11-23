@@ -11,6 +11,7 @@ export default function Register() {
     email: '',
     password: '',
     role: 'student',
+    subject: '',
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [apiError, setApiError] = useState('');
@@ -41,6 +42,10 @@ export default function Register() {
       errors.role = 'Please select a valid role';
     }
 
+    if (formData.role === 'admin' && (!formData.subject.trim() || formData.subject.trim().length < 2)) {
+      errors.subject = 'Subject is required for admin accounts (min 2 characters)';
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -57,7 +62,8 @@ export default function Register() {
         formData.name.trim(),
         formData.email.trim(),
         formData.password,
-        formData.role
+        formData.role,
+        formData.role === 'admin' ? formData.subject.trim() : null
       );
 
       if (newUser.role === 'admin') {
@@ -201,6 +207,31 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
+            {formData.role === 'admin' && (
+              <div className="animate-in fade-in duration-150">
+                <label className="block text-sm font-medium text-slate-700">Subject / Course Taught</label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    value={formData.subject}
+                    onChange={(e) => {
+                      setFormData({ ...formData, subject: e.target.value });
+                      if (fieldErrors.subject) setFieldErrors({ ...fieldErrors, subject: '' });
+                    }}
+                    className={`block w-full px-3.5 py-2.5 rounded-xl border ${
+                      fieldErrors.subject
+                        ? 'border-rose-400 focus:ring-rose-500 focus:border-rose-500'
+                        : 'border-slate-300 focus:ring-brand-500 focus:border-brand-500'
+                    } shadow-sm sm:text-sm transition-colors`}
+                    placeholder="e.g. Data Structures, Web Development"
+                  />
+                  {fieldErrors.subject && (
+                    <p className="mt-1 text-xs text-rose-600 font-medium">{fieldErrors.subject}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="pt-2">
               <button
