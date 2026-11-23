@@ -14,12 +14,17 @@ if (!connectionString) {
 }
 
 const isProduction = process.env.NODE_ENV === 'production';
+const requiresSsl =
+  isProduction ||
+  connectionString.includes('sslmode=require') ||
+  connectionString.includes('neon.tech') ||
+  connectionString.includes('supabase.co');
 
 const pool = new Pool({
   connectionString,
-  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  ssl: requiresSsl ? { rejectUnauthorized: false } : false,
   idleTimeoutMillis:       30_000,
-  connectionTimeoutMillis:  5_000,
+  connectionTimeoutMillis: 10_000,
 });
 
 // Log unexpected idle-client errors so they don't swallow silently
