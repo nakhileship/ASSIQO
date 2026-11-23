@@ -205,8 +205,33 @@ const getAssignments = async (_req, res, next) => {
   }
 };
 
+/**
+ * GET /api/admin/groups
+ * Lists all student groups with member count for assignment targeting
+ */
+const getAdminGroups = async (_req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        g.id, 
+        g.name, 
+        g.created_at,
+        COUNT(gm.user_id)::int AS member_count
+      FROM groups g
+      LEFT JOIN group_members gm ON g.id = gm.group_id
+      GROUP BY g.id, g.name, g.created_at
+      ORDER BY g.name ASC
+    `);
+
+    return res.json({ groups: result.rows });
+  } catch (err) {
+    return next(err);
+  }
+};
+
 module.exports = {
   createAssignment,
   updateAssignment,
   getAssignments,
+  getAdminGroups,
 };

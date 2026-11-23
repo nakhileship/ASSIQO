@@ -21,6 +21,9 @@ router.post('/assignments', adminAssignmentController.createAssignment);
 router.put('/assignments/:id', adminAssignmentController.updateAssignment);
 router.get('/assignments', adminAssignmentController.getAssignments);
 
+// Groups for assignment targeting
+router.get('/groups', adminAssignmentController.getAdminGroups);
+
 // Assignment submission tracking
 router.get('/assignments/:id/submissions', adminTrackingController.getAssignmentSubmissions);
 
