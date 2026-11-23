@@ -6,15 +6,19 @@
 -- =============================================================
 
 -- ── Users ────────────────────────────────────────────────────────────────────
-INSERT INTO users (name, email, password_hash, role) VALUES
-  -- Admin / Professor
-  ('Prof. Admin',   'admin@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'admin'),
+INSERT INTO users (name, email, password_hash, role, subject) VALUES
+  -- Admins / Professors (2 with distinct subjects)
+  ('Prof. Alan Turing',   'admin@assiqo.dev',    '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'admin', 'Data Structures'),
+  ('Prof. Grace Hopper',  'webadmin@assiqo.dev', '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'admin', 'Web Development'),
   -- Students
-  ('Alice Johnson', 'alice@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
-  ('Bob Smith',     'bob@assiqo.dev',    '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
-  ('Carol White',   'carol@assiqo.dev',  '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student'),
-  ('Dave Brown',    'dave@assiqo.dev',   '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student')
-ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+  ('Alice Johnson',       'alice@assiqo.dev',    '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student', NULL),
+  ('Bob Smith',           'bob@assiqo.dev',      '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student', NULL),
+  ('Carol White',         'carol@assiqo.dev',    '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student', NULL),
+  ('Dave Brown',          'dave@assiqo.dev',     '$2a$10$HuTJEO0wjyfs2ihr5Yhzx.pqK18F1PRigfPmtIwkJtgQcxaQ7c66m', 'student', NULL)
+ON CONFLICT (email) DO UPDATE 
+  SET password_hash = EXCLUDED.password_hash,
+      subject       = EXCLUDED.subject,
+      name          = EXCLUDED.name;
 
 -- ── Sample group (created by Alice) ──────────────────────────────────────────
 INSERT INTO groups (name, created_by)
@@ -29,14 +33,26 @@ INSERT INTO group_members (group_id, user_id)
   WHERE  g.name = 'Team Alpha'
 ON CONFLICT DO NOTHING;
 
--- ── Sample assignment (assigned to all groups) ────────────────────────────────
-INSERT INTO assignments (title, description, due_date, onedrive_link, assign_to_all, created_by)
+-- ── Sample assignment 1 (Data Structures, Prof. Turing, mode: all) ────────────
+INSERT INTO assignments (title, description, due_date, onedrive_link, assign_mode, created_by)
   SELECT
-    'Project Proposal',
-    'Submit a 2-page project proposal covering objectives, methodology, and timeline.',
+    'Data Structures & Trees Milestone',
+    'Submit your team binary search tree and heap implementation benchmarks.',
     NOW() + INTERVAL '7 days',
-    'https://onedrive.live.com/example-link-replace-me',
-    TRUE,
+    'https://onedrive.live.com/data-structures-milestone',
+    'all',
     id
   FROM users WHERE email = 'admin@assiqo.dev'
+ON CONFLICT DO NOTHING;
+
+-- ── Sample assignment 2 (Web Development, Prof. Hopper, mode: all) ────────────
+INSERT INTO assignments (title, description, due_date, onedrive_link, assign_mode, created_by)
+  SELECT
+    'Responsive Portfolio & Web App',
+    'Submit your frontend React dashboard with accessibility compliance and tests.',
+    NOW() + INTERVAL '10 days',
+    'https://onedrive.live.com/web-dev-portfolio',
+    'all',
+    id
+  FROM users WHERE email = 'webadmin@assiqo.dev'
 ON CONFLICT DO NOTHING;

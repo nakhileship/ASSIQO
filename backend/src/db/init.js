@@ -22,6 +22,17 @@ async function initDB() {
     await client.query(schemaSql);
     console.log('[db:init] Schema created successfully.');
 
+    // Run any migrations in migrations directory
+    const migrationsDir = path.join(__dirname, 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const migrationFiles = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+      for (const file of migrationFiles) {
+        console.log(`[db:init] Running migration: ${file}...`);
+        const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        await client.query(migrationSql);
+      }
+    }
+
     console.log('[db:init] Running seed.sql...');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await client.query(seedSql);
