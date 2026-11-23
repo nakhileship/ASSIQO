@@ -182,7 +182,7 @@ const getAssignmentSubmissions = async (req, res, next) => {
       const submissionType = (isIndividualMode || hasNoGroup) ? 'Individual' : 'Group';
 
       let sub = null;
-      if (s.group_id && groupSubmissions.has(s.group_id)) {
+      if (!isIndividualMode && s.group_id && groupSubmissions.has(s.group_id)) {
         sub = groupSubmissions.get(s.group_id);
       }
       if (!sub && userSubmissions.has(s.student_id)) {

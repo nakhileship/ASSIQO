@@ -50,8 +50,9 @@ const getStudentAssignments = async (req, res, next) => {
       JOIN users creator ON creator.id = a.created_by
       LEFT JOIN submissions s 
         ON s.assignment_id = a.id AND (
-          ($1::int IS NOT NULL AND s.group_id = $1::int) OR
-          ($1::int IS NULL AND s.user_id = $2)
+          (a.assign_mode = 'students' AND s.user_id = $2)
+          OR (a.assign_mode != 'students' AND $1::int IS NOT NULL AND s.group_id = $1::int)
+          OR (a.assign_mode != 'students' AND $1::int IS NULL AND s.user_id = $2)
         )
       LEFT JOIN users sub_user ON sub_user.id = s.confirmed_by
       WHERE 
@@ -69,24 +70,27 @@ const getStudentAssignments = async (req, res, next) => {
 
     const result = await pool.query(query, [groupId, studentId]);
 
-    const assignments = result.rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      due_date: row.due_date,
-      onedrive_link: row.onedrive_link,
-      assign_mode: row.assign_mode,
-      assign_to_all: row.assign_mode === 'all',
-      subject: row.subject,
-      admin_name: row.admin_name,
-      submission_type: hasGroup ? 'group' : 'individual',
-      created_at: row.created_at,
-      submission: {
-        submitted: row.submission_id !== null,
-        confirmed_by_name: row.confirmed_by_name || null,
-        confirmed_at: row.confirmed_at || null,
-      },
-    }));
+    const assignments = result.rows.map((row) => {
+      const isIndividual = row.assign_mode === 'students' || !hasGroup;
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        due_date: row.due_date,
+        onedrive_link: row.onedrive_link,
+        assign_mode: row.assign_mode,
+        assign_to_all: row.assign_mode === 'all',
+        subject: row.subject,
+        admin_name: row.admin_name,
+        submission_type: isIndividual ? 'individual' : 'group',
+        created_at: row.created_at,
+        submission: {
+          submitted: row.submission_id !== null,
+          confirmed_by_name: row.confirmed_by_name || null,
+          confirmed_at: row.confirmed_at || null,
+        },
+      };
+    });
 
     return res.json({
       has_group: hasGroup,
@@ -163,9 +167,11 @@ const confirmSubmission = async (req, res, next) => {
       return res.status(403).json({ error: 'This assignment is not assigned to you' });
     }
 
+    const isIndividualSubmission = assignment.assign_mode === 'students' || !hasGroup;
+
     // Check if already confirmed
     let existingSubmission;
-    if (hasGroup) {
+    if (!isIndividualSubmission) {
       existingSubmission = await pool.query(
         'SELECT id FROM submissions WHERE assignment_id = $1 AND group_id = $2',
         [assignmentId, groupId]
@@ -183,7 +189,7 @@ const confirmSubmission = async (req, res, next) => {
 
     // Record submission
     let insertResult;
-    if (hasGroup) {
+    if (!isIndividualSubmission) {
       insertResult = await pool.query(
         `INSERT INTO submissions (assignment_id, group_id, user_id, confirmed_by)
          VALUES ($1, $2, NULL, $3)

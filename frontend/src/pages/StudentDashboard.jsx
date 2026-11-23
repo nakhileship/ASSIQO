@@ -393,7 +393,7 @@ export default function StudentDashboard() {
       <SubmitConfirmModal
         assignment={selectedAssignment}
         isOpen={Boolean(selectedAssignment)}
-        hasGroup={hasGroup}
+        hasGroup={hasGroup && selectedAssignment?.submission_type !== 'individual'}
         onClose={() => setSelectedAssignment(null)}
         onSuccess={handleSubmissionSuccess}
         onError409={handleSubmission409}
